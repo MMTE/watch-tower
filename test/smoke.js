@@ -147,7 +147,7 @@ function request({ port, path, method = 'GET', headers = {}, body }) {
       assert.equal(response.status, 200);
       assert.match(response.headers['content-type'], /text\/html/);
       assert.match(response.body, /Watch Tower/);
-      assert.match(response.body, /API health/);
+      assert.match(response.body, /API backend/);
       assert.doesNotMatch(response.body, /test-key/);
     });
   });

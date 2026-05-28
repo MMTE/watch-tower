@@ -2,7 +2,6 @@ const express = require('express');
 const { StreamableHTTPServerTransport } = require('@modelcontextprotocol/sdk/server/streamableHttp.js');
 const { bot } = require('./bot');
 const apiRouter = require('./api');
-const channels = require('./channels');
 const { createMcpServer } = require('./mcpServer');
 const pkg = require('../package.json');
 
@@ -33,12 +32,7 @@ function formatUptime(seconds) {
 
 function renderStatusPage() {
   const memory = process.memoryUsage();
-  const active = channels.enabledChannels().map((c) => c.name);
   const environment = process.env.NODE_ENV === 'production' ? 'production' : 'development';
-  const rows = channels.ALL.map((c) => {
-    const state = c.enabled ? 'enabled' : 'disabled';
-    return `<li><span>${c.name}</span><strong class="${state}">${state}</strong></li>`;
-  }).join('');
 
   return `<!doctype html>
 <html lang="en">
@@ -49,33 +43,39 @@ function renderStatusPage() {
   <style>
     :root { color-scheme: light dark; font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; }
     body { margin: 0; background: Canvas; color: CanvasText; }
-    main { max-width: 760px; margin: 0 auto; padding: 48px 20px; }
-    h1 { margin: 0 0 8px; font-size: clamp(2rem, 6vw, 3.5rem); letter-spacing: 0; }
-    p { margin: 0 0 28px; color: color-mix(in srgb, CanvasText 70%, Canvas 30%); }
-    dl, ul { border: 1px solid color-mix(in srgb, CanvasText 18%, Canvas 82%); border-radius: 8px; margin: 0 0 20px; padding: 0; overflow: hidden; }
-    div, li { display: flex; justify-content: space-between; gap: 20px; padding: 14px 16px; border-bottom: 1px solid color-mix(in srgb, CanvasText 12%, Canvas 88%); }
-    div:last-child, li:last-child { border-bottom: 0; }
-    dt, span { color: color-mix(in srgb, CanvasText 70%, Canvas 30%); }
-    dd { margin: 0; font-weight: 650; text-align: right; }
-    ul { list-style: none; }
-    strong { text-align: right; }
-    .enabled, .ok { color: #16753a; }
-    .disabled { color: #8a4b08; }
+    main { max-width: 640px; margin: 0 auto; padding: 48px 20px; }
+    h1 { margin: 0 0 4px; font-size: clamp(1.6rem, 5vw, 2.4rem); letter-spacing: -0.01em; }
+    .sub { margin: 0 0 32px; color: color-mix(in srgb, CanvasText 55%, Canvas 45%); font-size: 0.9rem; }
+    .section-label { font-size: 0.75rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.08em; color: color-mix(in srgb, CanvasText 50%, Canvas 50%); margin: 28px 0 10px; }
+    dl { border: 1px solid color-mix(in srgb, CanvasText 14%, Canvas 86%); border-radius: 10px; margin: 0 0 8px; padding: 0; overflow: hidden; }
+    div { display: flex; justify-content: space-between; align-items: center; gap: 20px; padding: 13px 16px; border-bottom: 1px solid color-mix(in srgb, CanvasText 9%, Canvas 91%); }
+    div:last-child { border-bottom: 0; }
+    dt { color: color-mix(in srgb, CanvasText 65%, Canvas 35%); font-size: 0.9rem; }
+    dd { margin: 0; font-weight: 600; font-size: 0.9rem; text-align: right; }
+    .ok { color: #15803d; }
+    .meta { color: color-mix(in srgb, CanvasText 55%, Canvas 45%); font-weight: 400; font-size: 0.8rem; margin-left: 8px; }
   </style>
 </head>
 <body>
   <main>
     <h1>Watch Tower</h1>
-    <p>Hosted notification hub status</p>
+    <p class="sub">v${pkg.version} &middot; ${environment} &middot; up ${formatUptime(process.uptime())} &middot; ${(memory.rss / 1024 / 1024).toFixed(1)} MB RSS</p>
+
+    <p class="section-label">Services</p>
     <dl aria-label="Service status">
-      <div><dt>API health</dt><dd class="ok">ok</dd></div>
-      <div><dt>Version</dt><dd>${pkg.version}</dd></div>
-      <div><dt>Environment</dt><dd>${environment}</dd></div>
-      <div><dt>Uptime</dt><dd>${formatUptime(process.uptime())}</dd></div>
-      <div><dt>Memory</dt><dd>${(memory.rss / 1024 / 1024).toFixed(1)} MB RSS</dd></div>
-      <div><dt>Enabled channels</dt><dd>${active.length ? active.join(', ') : 'none'}</dd></div>
+      <div>
+        <dt>API backend</dt>
+        <dd><span class="ok">online</span><span class="meta">REST + /api/health</span></dd>
+      </div>
+      <div>
+        <dt>MCP server</dt>
+        <dd><span class="ok">online</span><span class="meta">POST /mcp (HTTP)</span></dd>
+      </div>
+      <div>
+        <dt>Frontend website</dt>
+        <dd><span class="ok">online</span><span class="meta"><a href="https://mmte.github.io/watch-tower" style="color:inherit">mmte.github.io/watch-tower</a></span></dd>
+      </div>
     </dl>
-    <ul aria-label="Channel state">${rows}</ul>
   </main>
 </body>
 </html>`;
