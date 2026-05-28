@@ -140,7 +140,9 @@ npm run mcp                # MCP server over stdio (for AI agents)</code></pre>
   <h2>Surfaces</h2>
   <ul>
     <li><strong>REST API</strong> — <code>POST /api/send</code>, <code>/alert</code>, <code>/log</code>, <code>/file</code>. API-key auth.</li>
-    <li><strong>MCP server</strong> — stdio transport. Tools: <code>send_message</code>, <code>send_alert</code>, <code>send_log</code>, <code>send_file</code>, <code>list_channels</code>.</li>
+    <li><strong>MCP server (stdio)</strong> — stdio transport for local AI agent use. Tools: <code>send_message</code>, <code>send_alert</code>, <code>send_log</code>, <code>send_file</code>, <code>list_channels</code>.</li>
+    <li><strong>MCP server (HTTP)</strong> — <code>POST /mcp</code> Streamable HTTP transport. Same tools, remote-accessible. API-key auth via header, query param, or Bearer token.</li>
+    <li><strong>Status page</strong> — <code>GET /status</code> — public HTML page showing version, uptime, memory, and per-channel state. No auth required.</li>
     <li><strong>Telegram bot</strong> — <code>/start</code>, <code>/ping</code>, <code>/status</code>, <code>/channels</code>, <code>/help</code>.</li>
   </ul>
 
