@@ -53,7 +53,7 @@ docker compose up -d --build
 
 ## Deploy on Railway
 
-[![Deploy on Railway](https://railway.com/button.svg)](https://railway.com/deploy/bBum6y?referralCode=1PbvOz&utm_medium=integration&utm_source=template&utm_campaign=generic)
+[![Deploy on Railway](https://railway.com/button.svg)](https://railway.com/deploy/81DFSm?referralCode=1PbvOz&utm_medium=integration&utm_source=template&utm_campaign=generic)
 
 Uses the existing `Dockerfile` and `railway.json` (healthcheck on `/api/health`, restart on failure). After the first deploy:
 
