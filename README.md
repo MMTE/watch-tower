@@ -80,6 +80,10 @@ A channel is **enabled** when its environment variables are set. Disabled channe
 
 Set `DEFAULT_CHANNELS=telegram,ntfy` to scope the default fan-out list. Every API/MCP request can also override with its own `channels` field.
 
+### Channel roadmap
+
+- [ ] Support multiple configured instances of the same channel type, while keeping current single-instance env vars backward compatible. Example selectors: `telegram:ops`, `telegram:dev`, `ntfy:prod`, `ntfy:dev`.
+
 ### Severity → priority mapping
 
 | Level      | Pushover         | Gotify | ntfy |

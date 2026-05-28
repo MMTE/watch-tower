@@ -1,6 +1,6 @@
 {
   "name": "watch-tower",
-  "version": "1.1.0",
+  "version": "1.2.0",
   "description": "Pluggable notification hub for AI agents and apps. One MCP server + one REST API, fan-out to Telegram, Bale, Pushover, Gotify, and ntfy.",
   "main": "src/index.js",
   "bin": {

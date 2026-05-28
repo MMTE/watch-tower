@@ -19,6 +19,31 @@ async function test(name, fn) {
   }
 }
 
+async function withServer(app, fn) {
+  const server = app.listen(0);
+  try {
+    return await fn(server.address().port);
+  } finally {
+    await new Promise((resolve) => server.close(resolve));
+  }
+}
+
+function request({ port, path, method = 'GET', headers = {}, body }) {
+  return new Promise((resolve, reject) => {
+    const req = http.request(
+      { hostname: '127.0.0.1', port, path, method, headers },
+      (res) => {
+        let data = '';
+        res.on('data', (c) => (data += c));
+        res.on('end', () => resolve({ status: res.statusCode, headers: res.headers, body: data }));
+      }
+    );
+    req.on('error', reject);
+    if (body !== undefined) req.end(body);
+    else req.end();
+  });
+}
+
 (async () => {
   console.log('watch-tower smoke');
 
@@ -87,22 +112,13 @@ async function test(name, fn) {
     const app = express();
     app.use(express.json());
     app.use('/api', router);
-    const server = app.listen(0);
-    try {
-      const port = server.address().port;
-      const body = await new Promise((resolve, reject) => {
-        http.get(`http://127.0.0.1:${port}/api/health`, (res) => {
-          let data = '';
-          res.on('data', (c) => (data += c));
-          res.on('end', () => resolve(JSON.parse(data)));
-        }).on('error', reject);
-      });
+    await withServer(app, async (port) => {
+      const response = await request({ port, path: '/api/health' });
+      const body = JSON.parse(response.body);
       assert.equal(body.ok, true);
       assert.ok(Array.isArray(body.channels));
       assert.equal(body.channels.length, 5);
-    } finally {
-      server.close();
-    }
+    });
   });
 
   await test('REST /api/send without key is unauthorized', async () => {
@@ -111,22 +127,90 @@ async function test(name, fn) {
     const app = express();
     app.use(express.json());
     app.use('/api', router);
-    const server = app.listen(0);
-    try {
-      const port = server.address().port;
-      const status = await new Promise((resolve, reject) => {
-        const req = http.request(
-          { hostname: '127.0.0.1', port, path: '/api/send', method: 'POST',
-            headers: { 'Content-Type': 'application/json' } },
-          (res) => resolve(res.statusCode)
-        );
-        req.on('error', reject);
-        req.end(JSON.stringify({ text: 'hi' }));
+    await withServer(app, async (port) => {
+      const response = await request({
+        port,
+        path: '/api/send',
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ text: 'hi' }),
       });
-      assert.equal(status, 401);
-    } finally {
-      server.close();
-    }
+      assert.equal(response.status, 401);
+    });
+  });
+
+  await test('GET /status returns public HTML status page', async () => {
+    const { createApp } = require('../src/app');
+    const app = createApp();
+    await withServer(app, async (port) => {
+      const response = await request({ port, path: '/status' });
+      assert.equal(response.status, 200);
+      assert.match(response.headers['content-type'], /text\/html/);
+      assert.match(response.body, /Watch Tower/);
+      assert.match(response.body, /API health/);
+      assert.doesNotMatch(response.body, /test-key/);
+    });
+  });
+
+  await test('POST /mcp rejects missing and invalid API keys', async () => {
+    const { createApp } = require('../src/app');
+    const app = createApp();
+    await withServer(app, async (port) => {
+      const missing = await request({
+        port,
+        path: '/mcp',
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: '{}',
+      });
+      assert.equal(missing.status, 401);
+
+      const invalid = await request({
+        port,
+        path: '/mcp?key=wrong',
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: '{}',
+      });
+      assert.equal(invalid.status, 401);
+    });
+  });
+
+  await test('MCP auth accepts x-api-key, query key, and bearer token forms', () => {
+    const { getApiKey } = require('../src/app');
+    assert.equal(getApiKey({ headers: { 'x-api-key': 'header-key' }, query: {} }), 'header-key');
+    assert.equal(getApiKey({ headers: {}, query: { key: 'query-key' } }), 'query-key');
+    assert.equal(getApiKey({ headers: { authorization: 'Bearer bearer-key' }, query: {} }), 'bearer-key');
+  });
+
+  await test('POST /mcp accepts bearer API key and returns MCP JSON-RPC response', async () => {
+    const { createApp } = require('../src/app');
+    const app = createApp();
+    await withServer(app, async (port) => {
+      const response = await request({
+        port,
+        path: '/mcp',
+        method: 'POST',
+        headers: {
+          Authorization: 'Bearer test-key',
+          'Content-Type': 'application/json',
+          Accept: 'application/json, text/event-stream',
+        },
+        body: JSON.stringify({
+          jsonrpc: '2.0',
+          id: 1,
+          method: 'initialize',
+          params: {
+            protocolVersion: '2025-03-26',
+            capabilities: {},
+            clientInfo: { name: 'smoke', version: '1.0.0' },
+          },
+        }),
+      });
+      assert.equal(response.status, 200);
+      assert.match(response.body, /"jsonrpc":"2.0"/);
+      assert.match(response.body, /watch-tower/);
+    });
   });
 
   if (failures) {

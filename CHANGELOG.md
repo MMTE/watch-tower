@@ -2,6 +2,21 @@
 
 All notable changes to this project will be documented here. Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); versioning follows [SemVer](https://semver.org/).
 
+## [1.2.0] - 2026-05-28
+
+### Added
+- Streamable HTTP MCP transport at `POST /mcp`, protected by API key (accepts `x-api-key` header, `?key=` query param, or `Authorization: Bearer` token).
+- Public status page at `GET /status` showing version, uptime, memory usage, environment, and per-channel enable state.
+- `GET /` redirects to `/status`.
+- `src/app.js` — Express app factory (`createApp`), auth helpers (`getApiKey`, `requireApiKey`), and status page renderer.
+- `src/mcpServer.js` — MCP server factory (`createMcpServer`) shared by stdio and HTTP transports.
+- Smoke tests for the status page, MCP HTTP endpoint, and all three API-key input forms.
+
+### Changed
+- `src/index.js` simplified to use `createApp()`.
+- `src/mcp.js` simplified to use `createMcpServer()`.
+- MCP server version now reads from `package.json` instead of being hardcoded.
+
 ## [1.1.0] - 2026-05-28
 
 ### Added
