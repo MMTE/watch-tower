@@ -1,0 +1,12 @@
+node_modules
+uploads
+.env
+.env.*
+.git
+.gitignore
+.github
+*.md
+!README.md
+Dockerfile
+docker-compose.yml
+test

@@ -1,0 +1,14 @@
+services:
+  watch-tower:
+    build: .
+    image: watch-tower:latest
+    container_name: watch-tower
+    env_file: .env
+    ports:
+      - "${API_PORT:-3000}:3000"
+    volumes:
+      - watch-tower-uploads:/app/uploads
+    restart: unless-stopped
+
+volumes:
+  watch-tower-uploads:

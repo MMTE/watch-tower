@@ -1,0 +1,54 @@
+{
+  "name": "watch-tower",
+  "version": "1.1.0",
+  "description": "Pluggable notification hub for AI agents and apps. One MCP server + one REST API, fan-out to Telegram, Bale, Pushover, Gotify, and ntfy.",
+  "main": "src/index.js",
+  "bin": {
+    "watch-tower-mcp": "src/mcp.js"
+  },
+  "scripts": {
+    "start": "node src/index.js",
+    "mcp": "node src/mcp.js",
+    "test": "node test/smoke.js"
+  },
+  "keywords": [
+    "mcp",
+    "model-context-protocol",
+    "notifications",
+    "telegram",
+    "bale",
+    "pushover",
+    "gotify",
+    "ntfy",
+    "ai-agent",
+    "alerting"
+  ],
+  "author": "Watch Tower contributors",
+  "license": "MIT",
+  "homepage": "https://github.com/MMTE/watch-tower#readme",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/MMTE/watch-tower.git"
+  },
+  "bugs": {
+    "url": "https://github.com/MMTE/watch-tower/issues"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "files": [
+    "src",
+    "README.md",
+    "LICENSE",
+    "CHANGELOG.md",
+    ".env.example"
+  ],
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.12.1",
+    "dotenv": "^16.4.7",
+    "express": "^4.21.2",
+    "multer": "^1.4.5-lts.1",
+    "node-telegram-bot-api": "^0.66.0",
+    "zod": "^4.3.6"
+  }
+}
