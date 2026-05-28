@@ -8,6 +8,9 @@
 <meta property="og:title" content="Watch Tower" />
 <meta property="og:description" content="Pluggable notification hub for AI agents and apps." />
 <meta property="og:type" content="website" />
+<meta property="og:image" content="https://mmte.github.io/watch-tower/logo.png" />
+<meta name="twitter:card" content="summary" />
+<link rel="icon" type="image/png" href="logo.png" />
 <style>
   :root {
     --fg: #1a1a1a;
@@ -37,6 +40,7 @@
   }
   main { max-width: 720px; margin: 0 auto; padding: 64px 24px 96px; }
   header { margin-bottom: 48px; }
+  .logo { display: block; margin: 0 0 16px; border-radius: 12px; }
   h1 { font-size: 2rem; margin: 0 0 8px; letter-spacing: -0.02em; }
   .pitch { color: var(--muted); margin: 0 0 24px; font-size: 1.1rem; }
   .badges { display: flex; flex-wrap: wrap; gap: 8px; margin: 0 0 24px; }
@@ -95,6 +99,7 @@
 <body>
 <main>
   <header>
+    <img src="logo.png" alt="" width="128" height="128" class="logo" />
     <h1>Watch Tower</h1>
     <p class="pitch">Pluggable notification hub for AI agents and apps. One MCP server + one REST API, fan out to multiple channels.</p>
     <div class="badges">

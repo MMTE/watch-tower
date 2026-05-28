@@ -1,3 +1,7 @@
+<p align="center">
+  <img src="docs/logo.png" alt="Watch Tower" width="180" height="180" />
+</p>
+
 # Watch Tower
 
 [![CI](https://github.com/MMTE/watch-tower/actions/workflows/ci.yml/badge.svg)](https://github.com/MMTE/watch-tower/actions/workflows/ci.yml)
