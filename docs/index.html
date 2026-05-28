@@ -1,0 +1,147 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Watch Tower — pluggable notification hub</title>
+<meta name="description" content="One MCP server + one REST API that fan out to Telegram, Bale, Pushover, Gotify, and ntfy." />
+<meta property="og:title" content="Watch Tower" />
+<meta property="og:description" content="Pluggable notification hub for AI agents and apps." />
+<meta property="og:type" content="website" />
+<style>
+  :root {
+    --fg: #1a1a1a;
+    --muted: #5a5a5a;
+    --bg: #fafafa;
+    --accent: #5b3df5;
+    --border: #e4e4e4;
+    --code-bg: #f1f1f1;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --fg: #ececec;
+      --muted: #a0a0a0;
+      --bg: #111;
+      --accent: #a99cff;
+      --border: #2a2a2a;
+      --code-bg: #1d1d1d;
+    }
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; }
+  body {
+    font: 16px/1.55 ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+    color: var(--fg);
+    background: var(--bg);
+    -webkit-font-smoothing: antialiased;
+  }
+  main { max-width: 720px; margin: 0 auto; padding: 64px 24px 96px; }
+  header { margin-bottom: 48px; }
+  h1 { font-size: 2rem; margin: 0 0 8px; letter-spacing: -0.02em; }
+  .pitch { color: var(--muted); margin: 0 0 24px; font-size: 1.1rem; }
+  .badges { display: flex; flex-wrap: wrap; gap: 8px; margin: 0 0 24px; }
+  .badges img { height: 20px; }
+  .cta { display: flex; flex-wrap: wrap; gap: 12px; margin-top: 20px; }
+  .btn {
+    display: inline-block;
+    padding: 8px 14px;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    text-decoration: none;
+    color: var(--fg);
+    font-size: 0.95rem;
+    background: transparent;
+  }
+  .btn.primary { background: var(--accent); color: #fff; border-color: var(--accent); }
+  .btn:hover { border-color: var(--accent); }
+  h2 {
+    font-size: 0.85rem;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--muted);
+    margin: 40px 0 16px;
+    font-weight: 600;
+  }
+  table { width: 100%; border-collapse: collapse; font-size: 0.95rem; }
+  th, td { text-align: left; padding: 8px 12px; border-bottom: 1px solid var(--border); }
+  th { color: var(--muted); font-weight: 500; }
+  code {
+    font-family: ui-monospace, "SF Mono", Menlo, monospace;
+    font-size: 0.9em;
+    background: var(--code-bg);
+    padding: 1px 6px;
+    border-radius: 3px;
+  }
+  pre {
+    background: var(--code-bg);
+    padding: 16px;
+    border-radius: 6px;
+    overflow-x: auto;
+    font-size: 0.85rem;
+  }
+  pre code { background: transparent; padding: 0; }
+  ul { padding-left: 20px; }
+  li { margin: 4px 0; }
+  footer {
+    margin-top: 64px;
+    padding-top: 24px;
+    border-top: 1px solid var(--border);
+    color: var(--muted);
+    font-size: 0.85rem;
+  }
+  footer a { color: var(--muted); }
+</style>
+</head>
+<body>
+<main>
+  <header>
+    <h1>Watch Tower</h1>
+    <p class="pitch">Pluggable notification hub for AI agents and apps. One MCP server + one REST API, fan out to multiple channels.</p>
+    <div class="badges">
+      <a href="https://github.com/MMTE/watch-tower/actions/workflows/ci.yml"><img alt="CI" src="https://github.com/MMTE/watch-tower/actions/workflows/ci.yml/badge.svg" /></a>
+      <a href="https://github.com/MMTE/watch-tower/blob/main/LICENSE"><img alt="MIT" src="https://img.shields.io/badge/license-MIT-blue.svg" /></a>
+      <img alt="Node 20+" src="https://img.shields.io/badge/node-%E2%89%A520-brightgreen.svg" />
+      <img alt="MCP 1.x" src="https://img.shields.io/badge/MCP-1.x-purple.svg" />
+    </div>
+    <div class="cta">
+      <a class="btn primary" href="https://github.com/MMTE/watch-tower">View on GitHub</a>
+      <a class="btn" href="https://github.com/MMTE/watch-tower#readme">Read the docs</a>
+      <a class="btn" href="https://railway.com/template/aq65hvzd1qjtpfj38fxbdu3nfbp0fkn9ybwj35na">Deploy on Railway</a>
+    </div>
+  </header>
+
+  <h2>Channels</h2>
+  <table>
+    <thead>
+      <tr><th>Channel</th><th>Required env</th><th>Notes</th></tr>
+    </thead>
+    <tbody>
+      <tr><td><code>telegram</code></td><td><code>TELEGRAM_BOT_TOKEN</code>, <code>TELEGRAM_CHAT_ID</code></td><td>Bot UI + native file uploads</td></tr>
+      <tr><td><code>bale</code></td><td><code>BALE_BOT_TOKEN</code>, <code>BALE_CHAT_ID</code></td><td>Telegram-compatible BotAPI</td></tr>
+      <tr><td><code>pushover</code></td><td><code>PUSHOVER_APP_TOKEN</code>, <code>PUSHOVER_USER_KEY</code></td><td>Priority maps from <code>level</code></td></tr>
+      <tr><td><code>gotify</code></td><td><code>GOTIFY_URL</code>, <code>GOTIFY_APP_TOKEN</code></td><td>Files sent as inline text fallback</td></tr>
+      <tr><td><code>ntfy</code></td><td><code>NTFY_TOPIC</code> (+ optional URL/auth)</td><td>Native <code>Title</code> / <code>Priority</code> / <code>Tags</code></td></tr>
+    </tbody>
+  </table>
+
+  <h2>Quick start</h2>
+<pre><code>git clone https://github.com/MMTE/watch-tower.git
+cd watch-tower
+cp .env.example .env       # fill in only the channels you want
+npm install
+npm start                  # REST API + Telegram bot
+npm run mcp                # MCP server over stdio (for AI agents)</code></pre>
+
+  <h2>Surfaces</h2>
+  <ul>
+    <li><strong>REST API</strong> — <code>POST /api/send</code>, <code>/alert</code>, <code>/log</code>, <code>/file</code>. API-key auth.</li>
+    <li><strong>MCP server</strong> — stdio transport. Tools: <code>send_message</code>, <code>send_alert</code>, <code>send_log</code>, <code>send_file</code>, <code>list_channels</code>.</li>
+    <li><strong>Telegram bot</strong> — <code>/start</code>, <code>/ping</code>, <code>/status</code>, <code>/channels</code>, <code>/help</code>.</li>
+  </ul>
+
+  <footer>
+    MIT licensed. <a href="https://github.com/MMTE/watch-tower">Source on GitHub</a> · <a href="https://github.com/MMTE/watch-tower/blob/main/CONTRIBUTING.md">Contributing</a> · <a href="https://github.com/MMTE/watch-tower/blob/main/SECURITY.md">Security</a>
+  </footer>
+</main>
+</body>
+</html>

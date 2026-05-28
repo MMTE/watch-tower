@@ -47,6 +47,21 @@ cp .env.example .env
 docker compose up -d --build
 ```
 
+## Deploy on Railway
+
+[![Deploy on Railway](https://railway.com/button.svg)](https://railway.com/template/aq65hvzd1qjtpfj38fxbdu3nfbp0fkn9ybwj35na)
+
+Uses the existing `Dockerfile` and `railway.json` (healthcheck on `/api/health`, restart on failure). After the first deploy:
+
+1. Set `API_KEY` and any channel credentials (`TELEGRAM_BOT_TOKEN`, `NTFY_TOPIC`, …) in the Variables tab.
+2. Under Settings → Networking, generate a public domain.
+3. Set `WEBHOOK_URL` to that public HTTPS URL (no trailing slash) — Telegram then uses webhook mode instead of polling.
+4. Redeploy.
+
+Railway injects `PORT`; the app picks it up automatically.
+
+> **Heads up on the free / Hobby tier:** Railway sleeps idle apps, which means alerts sent while the service is asleep are lost (Telegram drops webhook updates after retries; the others have no retry at all). For production alerting, use the paid plan or a host that doesn't idle.
+
 ## Channels
 
 A channel is **enabled** when its environment variables are set. Disabled channels are silently skipped.

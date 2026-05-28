@@ -9,4 +9,5 @@ uploads
 !README.md
 Dockerfile
 docker-compose.yml
+docs
 test

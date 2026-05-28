@@ -6,7 +6,7 @@ const apiRouter = require('./api');
 const channels = require('./channels');
 
 const app = express();
-const PORT = process.env.API_PORT || 3000;
+const PORT = process.env.PORT || process.env.API_PORT || 3000;
 const token = process.env.TELEGRAM_BOT_TOKEN;
 
 app.use(express.json());
