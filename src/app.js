@@ -2,21 +2,10 @@ const express = require('express');
 const { StreamableHTTPServerTransport } = require('@modelcontextprotocol/sdk/server/streamableHttp.js');
 const { bot } = require('./bot');
 const apiRouter = require('./api');
+const agentRouter = require('./agent');
 const { createMcpServer } = require('./mcpServer');
+const { getApiKey, requireApiKey } = require('./auth');
 const pkg = require('../package.json');
-
-function getApiKey(req) {
-  const bearer = String(req.headers.authorization || '').match(/^Bearer\s+(.+)$/i);
-  return req.headers['x-api-key'] || req.query.key || bearer?.[1];
-}
-
-function requireApiKey(req, res, next) {
-  const apiKey = getApiKey(req);
-  if (!apiKey || apiKey !== process.env.API_KEY) {
-    return res.status(401).json({ ok: false, message: 'Unauthorized: invalid or missing API key' });
-  }
-  next();
-}
 
 function formatUptime(seconds) {
   const total = Math.floor(seconds);
@@ -119,6 +108,7 @@ function createApp() {
     res.type('html').send(renderStatusPage());
   });
   app.post('/mcp', requireApiKey, handleMcpRequest);
+  app.use('/api/agent', agentRouter);
   app.use('/api', apiRouter);
 
   return app;

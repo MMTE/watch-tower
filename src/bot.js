@@ -1,6 +1,7 @@
 // Telegram bot command UI. Only runs when not in MCP mode.
 const telegram = require('./channels/telegram');
 const channels = require('./channels');
+const replies = require('./replies');
 
 const isMCP = process.env.WATCHTOWER_MCP === '1';
 const token = process.env.TELEGRAM_BOT_TOKEN;
@@ -71,6 +72,10 @@ bot.onText(/\/channels/, (msg) => {
 });
 
 bot.onText(/\/status/, (msg) => {
+  // In the authorized agent chat, /status belongs to the agent bridge
+  // (fleet status) — captured by the message handler below, answered by the
+  // polling agent. The uptime status stays available from any other chat.
+  if (replies.isAgentChat(msg.chat.id)) return;
   const uptime = process.uptime();
   const h = Math.floor(uptime / 3600);
   const m = Math.floor((uptime % 3600) / 60);
@@ -89,7 +94,11 @@ bot.onText(/\/time/, (msg) => {
 });
 
 bot.on('message', (msg) => {
-  if (msg.text && msg.text.startsWith('/') && !msg.text.match(/^\/(start|ping|id|status|channels|help|time|echo)/)) {
+  if (!msg.text) return;
+  // Messages from the authorized chat are queued for agent polling
+  // (GET /api/agent/replies); the bot stays silent so the agent can answer.
+  if (replies.capture(msg)) return;
+  if (msg.text.startsWith('/') && !msg.text.match(/^\/(start|ping|id|status|channels|help|time|echo)/)) {
     bot.sendMessage(msg.chat.id, getHelpText(), { parse_mode: 'MarkdownV2' });
   }
 });
