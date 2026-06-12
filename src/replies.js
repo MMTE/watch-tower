@@ -61,12 +61,18 @@ function capture(msg) {
   if (UTILITY_CMD.test(msg.text)) return false;
   const refSource = `${msg.reply_to_message?.text || ''}\n${msg.text}`;
   const ref = refSource.match(ISSUE_REF);
-  append({
-    id: msg.message_id,
-    text: msg.text,
-    reference: ref ? ref[0] : null,
-    ts: new Date((msg.date || Date.now() / 1000) * 1000).toISOString(),
-  });
+  try {
+    append({
+      id: msg.message_id,
+      text: msg.text,
+      reference: ref ? ref[0] : null,
+      ts: new Date((msg.date || Date.now() / 1000) * 1000).toISOString(),
+    });
+  } catch (err) {
+    // A broken store must not break message handling; the message is lost
+    // but the failure is visible in the logs.
+    console.error(`[WatchTower] reply store write failed (message ${msg.message_id} dropped):`, err.message);
+  }
   return true;
 }
 

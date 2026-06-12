@@ -9,8 +9,9 @@ RUN npm ci --omit=dev && npm cache clean --force
 # Copy source
 COPY src ./src
 
-# Run as non-root, ensure uploads dir is owned correctly
-RUN mkdir -p uploads && chown -R node:node /app
+# Run as non-root, ensure runtime dirs are owned correctly (data/ seeds the
+# named volume's ownership on first use)
+RUN mkdir -p uploads data && chown -R node:node /app
 USER node
 
 EXPOSE 8080
