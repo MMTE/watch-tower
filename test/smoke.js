@@ -7,6 +7,10 @@ const http = require('node:http');
 
 process.env.WATCHTOWER_MCP = '1'; // suppress Telegram polling / webhook setup
 process.env.API_KEY = 'test-key';
+process.env.WATCHTOWER_DATA_DIR = require('node:fs').mkdtempSync(
+  require('node:path').join(require('node:os').tmpdir(), 'wt-smoke-')
+);
+process.env.TELEGRAM_CHAT_ID = '12345';
 
 let failures = 0;
 async function test(name, fn) {
@@ -210,6 +214,91 @@ function request({ port, path, method = 'GET', headers = {}, body }) {
       assert.equal(response.status, 200);
       assert.match(response.body, /"jsonrpc":"2.0"/);
       assert.match(response.body, /watch-tower/);
+    });
+  });
+
+  await test('replies store: append/list round-trip, capped, capture rules', () => {
+    const replies = require('../src/replies');
+    assert.deepEqual(replies.list(), []);
+
+    // Free text from the authorized chat is captured, reference from reply-to.
+    const captured = replies.capture({
+      message_id: 10,
+      text: 'بله، ادامه بده',
+      chat: { id: 12345 },
+      date: 1750000000,
+      reply_to_message: { text: '🤖 [checkpoint] MMTE/gholam#42\n\nplan...' },
+    });
+    assert.equal(captured, true);
+
+    // Commands stay captured too (/status belongs to the agent in this chat)...
+    assert.equal(replies.capture({ message_id: 11, text: '/status', chat: { id: 12345 } }), true);
+    // ...but bot utility commands and other chats are not.
+    assert.equal(replies.capture({ message_id: 12, text: '/ping', chat: { id: 12345 } }), false);
+    assert.equal(replies.capture({ message_id: 13, text: 'hello', chat: { id: 999 } }), false);
+
+    const stored = replies.list();
+    assert.equal(stored.length, 2);
+    assert.equal(stored[0].id, 10);
+    assert.equal(stored[0].reference, '#42');
+    assert.equal(stored[1].reference, null);
+  });
+
+  await test('POST /api/agent requires auth, accepts Bearer, validates payload', async () => {
+    const { createApp } = require('../src/app');
+    const app = createApp();
+    await withServer(app, async (port) => {
+      const noKey = await request({
+        port,
+        path: '/api/agent',
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ summary: 'hi' }),
+      });
+      assert.equal(noKey.status, 401);
+
+      const noSummary = await request({
+        port,
+        path: '/api/agent',
+        method: 'POST',
+        headers: { Authorization: 'Bearer test-key', 'Content-Type': 'application/json' },
+        body: JSON.stringify({ repo: 'o/r', kind: 'checkpoint' }),
+      });
+      assert.equal(noSummary.status, 400);
+
+      // No channels enabled in CI: delivery fails with 502, but the endpoint
+      // answers with the standard shape instead of throwing.
+      const undeliverable = await request({
+        port,
+        path: '/api/agent',
+        method: 'POST',
+        headers: { Authorization: 'Bearer test-key', 'Content-Type': 'application/json' },
+        body: JSON.stringify({ repo: 'o/r', summary: 'hi', kind: 'checkpoint', issue: 42 }),
+      });
+      assert.equal(undeliverable.status, 502);
+      const body = JSON.parse(undeliverable.body);
+      assert.equal(body.ok, false);
+      assert.ok(Array.isArray(body.errors));
+    });
+  });
+
+  await test('GET /api/agent/replies returns the captured list as a bare array', async () => {
+    const { createApp } = require('../src/app');
+    const app = createApp();
+    await withServer(app, async (port) => {
+      const unauthorized = await request({ port, path: '/api/agent/replies' });
+      assert.equal(unauthorized.status, 401);
+
+      const response = await request({
+        port,
+        path: '/api/agent/replies',
+        headers: { Authorization: 'Bearer test-key' },
+      });
+      assert.equal(response.status, 200);
+      const body = JSON.parse(response.body);
+      assert.ok(Array.isArray(body));
+      assert.equal(body.length, 2); // from the replies-store test above
+      assert.equal(body[0].text, 'بله، ادامه بده');
     });
   });
 

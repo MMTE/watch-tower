@@ -21,3 +21,6 @@ yarn-error.log*
 .idea/
 .DS_Store
 Thumbs.db
+
+# inbound reply store (runtime)
+data/

@@ -8,7 +8,9 @@ services:
       - "${API_PORT:-3000}:3000"
     volumes:
       - watch-tower-uploads:/app/uploads
+      - watch-tower-data:/app/data
     restart: unless-stopped
 
 volumes:
   watch-tower-uploads:
+  watch-tower-data:
