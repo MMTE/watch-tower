@@ -302,6 +302,22 @@ function request({ port, path, method = 'GET', headers = {}, body }) {
     });
   });
 
+await test('capture stores chat_id and reply_to_message_id for correlation', () => {
+  const replies = require('../src/replies');
+  const captured = replies.capture({
+    message_id: 20,
+    text: 'approved, ship it',
+    chat: { id: 12345 },
+    date: 1750000100,
+    reply_to_message: { message_id: 4578, text: '🤖 [checkpoint] MMTE/gholam#42\n\nplan...' },
+  });
+  assert.equal(captured, true);
+  const stored = replies.list().find((e) => e.id === 20);
+  assert.equal(stored.chat_id, 12345);
+  assert.equal(stored.reply_to_message_id, 4578);
+  assert.equal(stored.reference, '#42'); // legacy regex field unchanged
+});
+
   if (failures) {
     console.error(`\n${failures} test(s) failed`);
     process.exit(1);

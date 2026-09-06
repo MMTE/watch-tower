@@ -65,6 +65,8 @@ function capture(msg) {
     append({
       id: msg.message_id,
       text: msg.text,
+      chat_id: msg.chat.id,
+      reply_to_message_id: msg.reply_to_message?.message_id ?? null,
       reference: ref ? ref[0] : null,
       ts: new Date((msg.date || Date.now() / 1000) * 1000).toISOString(),
     });
