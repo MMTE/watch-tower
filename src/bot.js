@@ -96,8 +96,12 @@ bot.onText(/\/time/, (msg) => {
 bot.on('message', (msg) => {
   if (!msg.text) return;
   // Messages from the authorized chat are queued for agent polling
-  // (GET /api/agent/replies); the bot stays silent so the agent can answer.
-  if (replies.capture(msg)) return;
+  // (GET /api/agent/replies); the 👍 tells the human it landed, the
+  // answer itself comes from the agent.
+  if (replies.capture(msg)) {
+    telegram.ackReaction(msg.chat.id, msg.message_id).catch(() => {});
+    return;
+  }
   if (msg.text.startsWith('/') && !msg.text.match(/^\/(start|ping|id|status|channels|help|time|echo)/)) {
     bot.sendMessage(msg.chat.id, getHelpText(), { parse_mode: 'MarkdownV2' });
   }

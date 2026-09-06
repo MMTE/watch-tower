@@ -45,6 +45,16 @@ async function sendFile(filePath, { caption, filename, reply_to } = {}) {
   return bot.sendDocument(getChatId(), filePath, opts, fileOpts);
 }
 
+// Best-effort visible ack for captured replies; callers swallow errors.
+async function ackReaction(chatId, messageId) {
+  const res = await fetch(`https://api.telegram.org/bot${token}/setMessageReaction`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ chat_id: chatId, message_id: messageId, emoji: '👍' }),
+  });
+  if (!res.ok) throw new Error(`telegram setMessageReaction failed: ${res.status}`);
+}
+
 module.exports = {
   name: 'telegram',
   enabled,
@@ -54,4 +64,5 @@ module.exports = {
   getChatId,
   sendMessage,
   sendFile,
+  ackReaction,
 };

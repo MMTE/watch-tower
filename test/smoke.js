@@ -503,6 +503,21 @@ await test('MCP exposes send/send_file/get_replies/list_channels and loop instru
   });
 });
 
+await test('ackReaction posts a 👍 reaction to the Telegram API', async () => {
+  const originalFetch = global.fetch;
+  const calls = [];
+  global.fetch = async (url, opts) => { calls.push({ url, opts }); return { ok: true }; };
+  try {
+    const telegram = require('../src/channels/telegram');
+    await telegram.ackReaction(12345, 4578);
+  } finally {
+    global.fetch = originalFetch;
+  }
+  assert.equal(calls.length, 1);
+  assert.match(calls[0].url, /\/setMessageReaction$/);
+  assert.deepEqual(JSON.parse(calls[0].opts.body), { chat_id: 12345, message_id: 4578, emoji: '👍' });
+});
+
   if (failures) {
     console.error(`\n${failures} test(s) failed`);
     process.exit(1);
