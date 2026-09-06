@@ -1027,8 +1027,198 @@ git commit -m "docs: README/AGENTS.md for the two-way loop; release 1.3.0"
 
 ---
 
+### Task 9: Simple admin page — `/admin` with channels, recent sends, inbox, test-send
+
+**Files:**
+- Create: `src/activity.js`
+- Modify: `src/channels/index.js` (record sends in `notify`/`notifyFile`)
+- Modify: `src/app.js` (new `/admin` route + `renderAdminPage`, shared style const)
+- Test: `test/smoke.js`
+
+**Interfaces:**
+- Consumes: `channels.ALL`, `replies.list({limit})` (Task 2), dispatch results (Task 3), `escapeHtml` (Task 7).
+- Produces: `activity.recordSend(entry)` / `activity.listSends()` — in-memory ring, newest first, capped 50, lost on restart ("recent activity", not an audit log). `GET /admin?key=…` → HTML; invalid/missing key → 401.
+
+- [ ] **Step 1: Write the failing tests**
+
+```js
+await test('dispatcher records sends in the activity ring', async () => {
+  const ch = require('../src/channels');
+  const activity = require('../src/activity');
+  const before = activity.listSends().length;
+  const fake = {
+    name: 'fake-act',
+    enabled: true,
+    sendMessage: async () => 'sent',
+    sendFile: async () => 'sent',
+  };
+  ch.ALL.push(fake);
+  ch.BY_NAME[fake.name] = fake;
+  try {
+    await ch.notify({ text: 'ring me', title: 't', channels: ['fake-act'] });
+  } finally {
+    ch.ALL.pop();
+    delete ch.BY_NAME[fake.name];
+  }
+  const sends = activity.listSends();
+  assert.equal(sends.length, before + 1);
+  assert.equal(sends[0].text, 'ring me');
+  assert.deepEqual(sends[0].delivered, ['fake-act']);
+});
+
+await test('GET /admin requires the key and renders sends, inbox, channels', async () => {
+  const { createApp } = require('../src/app');
+  const app = createApp();
+  await withServer(app, async (port) => {
+    const denied = await request({ port, path: '/admin' });
+    assert.equal(denied.status, 401);
+
+    const page = await request({ port, path: '/admin?key=test-key' });
+    assert.equal(page.status, 200);
+    assert.match(page.headers['content-type'], /text\/html/);
+    assert.match(page.body, /Recent sends/);
+    assert.match(page.body, /Inbox/);
+    assert.match(page.body, /telegram/);
+    assert.doesNotMatch(page.body, /test-key/); // the key is never embedded in the HTML
+  });
+});
+```
+
+- [ ] **Step 2: Run tests to verify they fail**
+
+Run: `npm test`
+Expected: FAIL — `Cannot find module '../src/activity'`; `/admin` returns 404.
+
+- [ ] **Step 3: Write minimal implementation**
+
+Create `src/activity.js`:
+
+```js
+// In-memory ring of recent outbound sends. Newest first; lost on restart —
+// it feeds the admin page's "recent activity", not an audit log.
+const MAX_SENDS = 50;
+const sends = [];
+
+function recordSend(entry) {
+  sends.push({ ...entry, text: String(entry.text || '').slice(0, 200), ts: new Date().toISOString() });
+  if (sends.length > MAX_SENDS) sends.shift();
+}
+
+function listSends() {
+  return sends.slice().reverse();
+}
+
+module.exports = { recordSend, listSends, MAX_SENDS };
+```
+
+`src/channels/index.js` — `const activity = require('../activity');` at top; record after fan-out:
+
+```js
+async function notify({ text, title, level, parse_mode, reply_to, channels } = {}) {
+  if (!text) throw new Error('notify: text is required');
+  const result = await fanOut((ch) => ch.sendMessage(text, { title, level, parse_mode, reply_to }), channels);
+  activity.recordSend({ kind: 'message', title, text, level, delivered: result.delivered, errors: result.errors });
+  return result;
+}
+
+async function notifyFile({ filePath, caption, filename, title, level, reply_to, channels } = {}) {
+  if (!filePath) throw new Error('notifyFile: filePath is required');
+  const result = await fanOut((ch) => ch.sendFile(filePath, { caption, filename, title, level, reply_to }), channels);
+  activity.recordSend({ kind: 'file', title: title || filename || filePath, text: caption || '', level, delivered: result.delivered, errors: result.errors });
+  return result;
+}
+```
+
+`src/app.js` — extract the status-page CSS into a `STATUS_STYLES` const shared by both pages; add route and renderer:
+
+```js
+  app.get('/admin', requireApiKey, (_req, res) => {
+    res.type('html').send(renderAdminPage());
+  });
+```
+
+```js
+function renderAdminPage() {
+  const activity = require('./activity');
+  const sendRows = activity.listSends().map((s) => `<div><dt>${escapeHtml((s.title || s.text || '').slice(0, 80))}</dt><dd><span class="meta">${escapeHtml(s.ts.slice(11, 19))} UTC · ${s.delivered.length ? s.delivered.join(', ') : `failed: ${s.errors.map((e) => e.channel || 'n/a').join(', ')}`}</span></dd></div>`).join('\n      ') || '<div><dt>nothing sent yet</dt><dd></dd></div>';
+  const replyRows = replies.list({ limit: 10 }).slice().reverse().map((r) => `<div><dt>${escapeHtml(r.text.slice(0, 80))}</dt><dd><span class="meta">${escapeHtml(r.ts.slice(0, 19))}${r.reply_to_message_id ? ` · reply to ${r.reply_to_message_id}` : ''}</span></dd></div>`).join('\n      ') || '<div><dt>no replies yet</dt><dd></dd></div>';
+  const channelRows = channels.ALL.map((c) => `<div><dt>${c.name}</dt><dd>${c.enabled ? '<span class="ok">enabled</span>' : '<span class="meta">not configured</span>'}</dd></div>`).join('\n      ');
+
+  return `<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Watch Tower Admin</title>
+  <style>${STATUS_STYLES}</style>
+</head>
+<body>
+  <main>
+    <h1>Watch Tower</h1>
+    <p class="sub">admin</p>
+
+    <p class="section-label">Test send</p>
+    <dl aria-label="Test send"><div>
+      <dt><label for="t">text</label></dt>
+      <dd><input id="t" style="width:100%"></dd>
+    </div><div>
+      <dt><label for="ttl">title</label> / <label for="lvl">level</label></dt>
+      <dd><input id="ttl"> <select id="lvl"><option></option><option>info</option><option>warn</option><option>error</option><option>critical</option></select>
+      <button onclick="send()">Send</button> <span id="r" class="meta"></span></dd>
+    </div></dl>
+
+    <p class="section-label">Recent sends</p>
+    <dl aria-label="Recent sends">
+      ${sendRows}
+    </dl>
+
+    <p class="section-label">Inbox</p>
+    <dl aria-label="Inbox">
+      ${replyRows}
+    </dl>
+
+    <p class="section-label">Channels</p>
+    <dl aria-label="Channels">
+      ${channelRows}
+    </dl>
+  </main>
+  <script>
+    async function send() {
+      const key = new URLSearchParams(location.search).get('key');
+      const body = { text: document.getElementById('t').value };
+      const title = document.getElementById('ttl').value;
+      const level = document.getElementById('lvl').value;
+      if (title) body.title = title;
+      if (level) body.level = level;
+      const res = await fetch('/api/send?key=' + encodeURIComponent(key), {
+        method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body),
+      });
+      const json = await res.json();
+      document.getElementById('r').textContent = json.ok ? 'sent to ' + json.delivered.join(', ') : 'failed';
+      if (json.ok) setTimeout(() => location.reload(), 800);
+    }
+  </script>
+</body>
+</html>`;
+}
+```
+
+- [ ] **Step 4: Run tests to verify they pass**
+
+Run: `npm test`
+Expected: PASS.
+
+- [ ] **Step 5: Commit**
+
+```bash
+git add src/activity.js src/channels/index.js src/app.js test/smoke.js
+git commit -m "feat: simple /admin page - channels, recent sends, inbox, test-send form"
+```
+
+---
+
 ## Self-Review (already applied)
 
-- **Spec coverage:** MCP loop (Tasks 3, 5), inbox correlation (1, 2), REST params + 400 + auth (4), ack (6), status page (7), docs/version (8) — every spec section maps to a task. Spec non-goals have no tasks.
+- **Spec coverage:** MCP loop (Tasks 3, 5), inbox correlation (1, 2), REST params + 400 + auth (4), ack (6), status page (7), docs/version (8), admin page (9) — every spec section maps to a task. Spec non-goals have no tasks.
 - **Type consistency:** `waitFor(since, timeoutMs)` ms in module, seconds at both edges (REST caps 55, MCP caps 60). `reply_to` is a number everywhere; `message_ids` shape `{ [channel]: number }` consistent across api.js, agent.js, mcpServer.js.
 - **Placeholders:** none — every step carries exact code or exact doc content.

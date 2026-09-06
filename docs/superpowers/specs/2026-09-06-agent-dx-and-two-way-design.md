@@ -5,7 +5,6 @@ Date: 2026-09-06 · Status: proposed · Milestone: v1.3.0
 ## Problem
 
 Three user-reported failures:
-
 1. **AI agents lose the tool.** Seven send entry points across three surfaces speak four
    payload dialects (`text` / `message` / `log` / `summary`); MCP tool descriptions are
    one-liners with no examples; no server-level instructions. There is no MCP tool to read
@@ -36,7 +35,7 @@ Practical, usable, DX-friendly — for agents (MCP), apps (REST), and humans (bo
 
 | Cut | Rung | Why / upgrade path |
 |---|---|---|
-| Admin web dashboard | YAGNI | This tool's UI is the Telegram bot + README + status page; a dashboard is a second product. Revisit if channel debugging via curl ever hurts. |
+| ~~Admin web dashboard~~ | YAGNI | Cut originally; **reinstated simplified on spec approval** as a single static `/admin` page (see §7). |
 | REST endpoint consolidation | reuse | The dispatcher already normalizes internally; `/api/alert`, `/api/log`, `/api/agent` have real consumers. The dialect problem is agent-side and is solved in MCP. |
 | OpenAPI spec, llms.txt, MCP resources | YAGNI | 5 endpoints, README table suffices; tool descriptions + instructions are what agents actually see. |
 | Bale two-way capture | YAGNI | Telegram covers the named case; Bale would duplicate the bot runtime. Roadmap. |
@@ -100,6 +99,15 @@ MCP section with the loop and 4-tool table, two-way capability matrix, corrected
 layout, updated roadmap. New `AGENTS.md` (conventions for coding agents working on this
 repo: CommonJS, Node ≥ 20, no build step, channel contract, `npm test`, commit style).
 CHANGELOG 1.3.0. `package.json`: version bump, `npm run dev` (one line).
+
+### 7. Simple admin page (added on spec approval)
+
+`GET /admin` (API-key gated, `?key=` — navigation can't send headers). One static page in
+`app.js` reusing the status-page styles: Channels, Recent sends (last 50, from a new
+in-memory ring `src/activity.js` recorded in the dispatcher — the single choke point; lost
+on restart, fine for "recent"), Inbox (last 10 captured replies), and a test-send form
+that calls `/api/send` via fetch using the key already in the page URL
+(`location.search`) — the key is never embedded in the HTML. One new file, no deps.
 
 ## Capability matrix (to publish in README)
 
