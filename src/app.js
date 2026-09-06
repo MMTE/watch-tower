@@ -6,6 +6,8 @@ const agentRouter = require('./agent');
 const { createMcpServer } = require('./mcpServer');
 const { getApiKey, requireApiKey } = require('./auth');
 const pkg = require('../package.json');
+const channels = require('./channels');
+const replies = require('./replies');
 
 function formatUptime(seconds) {
   const total = Math.floor(seconds);
@@ -19,9 +21,17 @@ function formatUptime(seconds) {
   return parts.join(' ');
 }
 
+function escapeHtml(s) {
+  return String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+}
+
 function renderStatusPage() {
   const memory = process.memoryUsage();
   const environment = process.env.NODE_ENV === 'production' ? 'production' : 'development';
+  const inbox = replies.list();
+  const lastReply = inbox.length
+    ? `${escapeHtml(inbox[inbox.length - 1].ts.slice(0, 19))} UTC · ${escapeHtml(inbox[inbox.length - 1].text.slice(0, 80))}`
+    : 'no replies captured yet';
 
   return `<!doctype html>
 <html lang="en">
@@ -64,6 +74,16 @@ function renderStatusPage() {
         <dt>Frontend website</dt>
         <dd><span class="ok">online</span><span class="meta"><a href="https://mmte.github.io/watch-tower" style="color:inherit">mmte.github.io/watch-tower</a></span></dd>
       </div>
+    </dl>
+
+    <p class="section-label">Channels</p>
+    <dl aria-label="Channels">
+      ${channels.ALL.map((c) => `<div><dt>${c.name}</dt><dd>${c.enabled ? '<span class="ok">enabled</span>' : '<span class="meta">not configured</span>'}</dd></div>`).join('\n      ')}
+    </dl>
+
+    <p class="section-label">Inbox</p>
+    <dl aria-label="Inbox">
+      <div><dt>Last reply</dt><dd><span class="meta">${lastReply}</span></dd></div>
     </dl>
   </main>
 </body>

@@ -157,6 +157,9 @@ function parseMcpMessage(raw) {
       assert.match(response.headers['content-type'], /text\/html/);
       assert.match(response.body, /Watch Tower/);
       assert.match(response.body, /API backend/);
+      assert.match(response.body, /Channels/);
+      assert.match(response.body, /telegram/);
+      assert.match(response.body, /Inbox/);
       assert.doesNotMatch(response.body, /test-key/);
     });
   });
