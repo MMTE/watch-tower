@@ -24,12 +24,29 @@ function storePath() {
   return path.join(dataDir(), 'replies.json');
 }
 
-function list() {
+function list(options = {}) {
+  let entries;
   try {
     const parsed = JSON.parse(fs.readFileSync(storePath(), 'utf8'));
-    return Array.isArray(parsed) ? parsed : [];
+    entries = Array.isArray(parsed) ? parsed : [];
   } catch {
-    return [];
+    entries = [];
+  }
+  if (options.since != null) entries = entries.filter((e) => e.id > options.since);
+  if (options.limit != null) entries = entries.slice(-options.limit);
+  return entries;
+}
+
+// ponytail: file polling is correct for the single-process deployment; a
+// multi-process deployment needs an event bus on append instead.
+const POLL_MS = 300;
+
+async function waitFor(since, timeoutMs = 0) {
+  const deadline = Date.now() + timeoutMs;
+  for (;;) {
+    const fresh = list({ since });
+    if (fresh.length || Date.now() >= deadline) return fresh;
+    await new Promise((resolve) => setTimeout(resolve, POLL_MS));
   }
 }
 
@@ -78,4 +95,4 @@ function capture(msg) {
   return true;
 }
 
-module.exports = { list, append, capture, isAgentChat, MAX_REPLIES };
+module.exports = { list, append, capture, waitFor, isAgentChat, MAX_REPLIES };

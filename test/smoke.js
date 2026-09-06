@@ -318,6 +318,24 @@ await test('capture stores chat_id and reply_to_message_id for correlation', () 
   assert.equal(stored.reference, '#42'); // legacy regex field unchanged
 });
 
+await test('list filters by since/limit; waitFor long-polls until a reply lands', async () => {
+  const replies = require('../src/replies');
+  const highest = replies.list().reduce((m, e) => Math.max(m, e.id), 0);
+
+  assert.deepEqual(replies.list({ since: highest }), []);
+  assert.ok(replies.list({ limit: 1 }).length <= 1);
+
+  const none = await replies.waitFor(highest, 50);
+  assert.equal(none.length, 0); // times out with nothing new
+
+  setTimeout(() => {
+    replies.capture({ message_id: highest + 5, text: 'late reply', chat: { id: 12345 }, date: 1750000200 });
+  }, 250);
+  const fresh = await replies.waitFor(highest, 2000);
+  assert.equal(fresh.length, 1);
+  assert.equal(fresh[0].text, 'late reply');
+});
+
   if (failures) {
     console.error(`\n${failures} test(s) failed`);
     process.exit(1);
