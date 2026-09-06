@@ -193,10 +193,14 @@ The server's `instructions` teach the loop: `send` → note the `message_id` →
 `send(..., { reply_to })` threads the follow-up. `level` maps to native priority on
 Pushover/Gotify/ntfy; `channels` selects specific channels, omitted = defaults.
 
+## Web pages
+
+- `/status` — public health page: services, channel states, last captured reply.
+- `/admin?key=…` — API-key-gated admin page: recent sends, inbox, channel states, and a
+  test-send form for one-click channel debugging.
+
 ## Telegram bot commands
 
-| Command         | Description                       |
-| --------------- | --------------------------------- |
 | `/start`        | Register and get chat ID          |
 | `/ping`         | Liveness check                    |
 | `/id`           | Show your chat ID                 |
