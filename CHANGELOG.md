@@ -2,6 +2,27 @@
 
 All notable changes to this project will be documented here. Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); versioning follows [SemVer](https://semver.org/).
 
+## [1.3.0] - 2026-09-06
+
+### Added
+- Two-way reply loop: MCP `get_replies` tool (`since`, `wait` long-poll, `limit`) and
+  `GET /api/agent/replies?since=&limit=&wait=`.
+- Reply correlation by id: captured entries store `chat_id` and `reply_to_message_id`.
+- Outbound `message_ids` in dispatch results (REST + MCP); `reply_to` threads a Telegram
+  follow-up into the original message (`send`, `send_file`, `/api/send`, `/api/file`).
+- Bot reacts 👍 to captured replies so the human sees the message landed.
+- MCP server `instructions` teaching the send → get_replies → reply_to loop.
+- Status page shows real channel states and the last captured reply; simple `/admin`
+  page (API-key gated) with recent sends, inbox, and a test-send form.
+- `AGENTS.md` for coding agents working on this repo; `npm run dev` (watch mode).
+
+### Changed
+- MCP tools consolidated: `send_message`/`send_alert`/`send_log` → one `send` with
+  `level` (**breaking** for MCP clients); `parse_mode` removed from the public schema.
+- Shared API-key auth on `/api/*` — `Authorization: Bearer` now accepted everywhere.
+- Unknown channel name in a send request returns `400` (was `500`) with the available
+  channel list in the message.
+
 ## [1.2.0] - 2026-05-28
 
 ### Added
