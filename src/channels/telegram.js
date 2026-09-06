@@ -48,6 +48,7 @@ async function sendFile(filePath, { caption, filename, reply_to } = {}) {
 module.exports = {
   name: 'telegram',
   enabled,
+  twoWay: true,
   bot,
   setChatId,
   getChatId,

@@ -46,6 +46,11 @@ function request({ port, path, method = 'GET', headers = {}, body }) {
     if (body !== undefined) req.end(body);
     else req.end();
   });
+
+}
+function parseMcpMessage(raw) {
+  const dataLine = raw.split('\n').find((l) => l.startsWith('data:'));
+  return JSON.parse(dataLine.slice(5).trim());
 }
 
 (async () => {
@@ -462,6 +467,39 @@ await test('GET /api/agent/replies supports since, limit, and wait', async () =>
     assert.equal(body.length, 1);
     assert.equal(body[0].text, 'hello again');
     assert.equal(body[0].reply_to_message_id, null);
+  });
+});
+
+await test('MCP exposes send/send_file/get_replies/list_channels and loop instructions', async () => {
+  const { createApp } = require('../src/app');
+  const app = createApp();
+  await withServer(app, async (port) => {
+    const post = (method, params, id) => request({
+      port, path: '/mcp', method: 'POST',
+      headers: {
+        Authorization: 'Bearer test-key',
+        'Content-Type': 'application/json',
+        Accept: 'application/json, text/event-stream',
+      },
+      body: JSON.stringify({ jsonrpc: '2.0', id, method, params }),
+    });
+
+    const init = parseMcpMessage((await post('initialize', {
+      protocolVersion: '2025-03-26',
+      capabilities: {},
+      clientInfo: { name: 'smoke', version: '1.0.0' },
+    }, 1)).body);
+    assert.match(init.result.instructions, /get_replies/);
+    assert.match(init.result.instructions, /reply_to/);
+
+    const tools = parseMcpMessage((await post('tools/list', {}, 2)).body);
+    assert.deepEqual(
+      tools.result.tools.map((t) => t.name).sort(),
+      ['get_replies', 'list_channels', 'send', 'send_file']
+    );
+
+    const call = parseMcpMessage((await post('tools/call', { name: 'get_replies', arguments: { limit: 1 } }, 3)).body);
+    assert.match(call.result.content[0].text, /Next call: since=\d+/);
   });
 });
 
