@@ -66,3 +66,10 @@ All notable changes to this project will be documented here. Format follows [Kee
 ## [1.0.0]
 
 - Initial release: Telegram bot + REST API + MCP server.
+
+## [1.3.1] - 2026-09-06
+
+### Added
+- `TELEGRAM_PROXY` env: routes all Telegram API traffic (bot client + 👍 ack) through
+  an HTTP(S) CONNECT proxy, scoped to Telegram only — for networks where
+  `api.telegram.org` is unreachable directly. Other channels stay direct.

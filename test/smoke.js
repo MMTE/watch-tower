@@ -521,6 +521,27 @@ await test('ackReaction posts a 👍 reaction to the Telegram API', async () => 
   assert.deepEqual(JSON.parse(calls[0].opts.body), { chat_id: 12345, message_id: 4578, emoji: '👍' });
 });
 
+await test('TELEGRAM_PROXY routes Telegram API calls through a CONNECT tunnel', async () => {
+  const http = require('node:http');
+  const seen = [];
+  const proxy = http.createServer();
+  proxy.on('connect', (req, socket) => {
+    seen.push(req.url);
+    socket.end();
+  });
+  await new Promise((resolve) => proxy.listen(0, '127.0.0.1', resolve));
+  process.env.TELEGRAM_PROXY = `http://127.0.0.1:${proxy.address().port}`;
+  try {
+    const telegram = require('../src/channels/telegram');
+    await assert.rejects(() => telegram.ackReaction(12345, 4578));
+    assert.equal(seen.length, 1);
+    assert.equal(seen[0], 'api.telegram.org:443');
+  } finally {
+    delete process.env.TELEGRAM_PROXY;
+    proxy.close();
+  }
+});
+
 await test('dispatcher records sends in the activity ring', async () => {
   const ch = require('../src/channels');
   const activity = require('../src/activity');

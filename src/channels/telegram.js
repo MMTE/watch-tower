@@ -1,4 +1,6 @@
+const https = require('https');
 const TelegramBot = require('node-telegram-bot-api');
+const { HttpsProxyAgent } = require('https-proxy-agent');
 
 const token = process.env.TELEGRAM_BOT_TOKEN;
 const webhookUrl = process.env.WEBHOOK_URL || null;
@@ -7,14 +9,25 @@ let chatId = process.env.TELEGRAM_CHAT_ID || null;
 const isMCP = process.env.WATCHTOWER_MCP === '1';
 const enabled = Boolean(token);
 
+// Telegram is unreachable from some networks (sanctions-filtered egress);
+// TELEGRAM_PROXY scopes an HTTP(S) proxy to Telegram traffic only.
+function telegramAgent() {
+  return process.env.TELEGRAM_PROXY ? new HttpsProxyAgent(process.env.TELEGRAM_PROXY) : null;
+}
+
+const botRequestOpts = () => {
+  const agent = telegramAgent();
+  return agent ? { request: { agent } } : {};
+};
+
 let bot = null;
 if (enabled) {
   if (isMCP) {
-    bot = new TelegramBot(token);
+    bot = new TelegramBot(token, botRequestOpts());
   } else if (webhookUrl) {
-    bot = new TelegramBot(token);
+    bot = new TelegramBot(token, botRequestOpts());
   } else {
-    bot = new TelegramBot(token, { polling: true });
+    bot = new TelegramBot(token, { polling: true, ...botRequestOpts() });
   }
 }
 
@@ -47,12 +60,32 @@ async function sendFile(filePath, { caption, filename, reply_to } = {}) {
 
 // Best-effort visible ack for captured replies; callers swallow errors.
 async function ackReaction(chatId, messageId) {
-  const res = await fetch(`https://api.telegram.org/bot${token}/setMessageReaction`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ chat_id: chatId, message_id: messageId, emoji: '👍' }),
+  const body = JSON.stringify({ chat_id: chatId, message_id: messageId, emoji: '👍' });
+  const agent = telegramAgent();
+  if (!agent) {
+    const res = await fetch(`https://api.telegram.org/bot${token}/setMessageReaction`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body,
+    });
+    if (!res.ok) throw new Error(`telegram setMessageReaction failed: ${res.status}`);
+    return;
+  }
+  // Proxied path: plain https.request through the CONNECT tunnel (undici's
+  // global fetch rejects foreign dispatchers).
+  const headers = { 'Content-Type': 'application/json', 'Content-Length': Buffer.byteLength(body) };
+  await new Promise((resolve, reject) => {
+    const req = https.request(
+      { hostname: 'api.telegram.org', path: `/bot${token}/setMessageReaction`, method: 'POST', headers, agent },
+      (res) => {
+        res.resume();
+        if (res.statusCode < 300) resolve();
+        else reject(new Error(`telegram setMessageReaction failed: ${res.statusCode}`));
+      }
+    );
+    req.on('error', reject);
+    req.end(body);
   });
-  if (!res.ok) throw new Error(`telegram setMessageReaction failed: ${res.status}`);
 }
 
 module.exports = {
