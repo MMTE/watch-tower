@@ -3,17 +3,10 @@ const multer = require('multer');
 const fs = require('fs');
 const path = require('path');
 const channels = require('./channels');
+const { requireApiKey } = require('./auth');
 
 const router = express.Router();
 const upload = multer({ dest: path.join(__dirname, '..', 'uploads') });
-
-function authMiddleware(req, res, next) {
-  const apiKey = req.headers['x-api-key'] || req.query.key;
-  if (!apiKey || apiKey !== process.env.API_KEY) {
-    return res.status(401).json({ ok: false, message: 'Unauthorized: invalid or missing API key' });
-  }
-  next();
-}
 
 function parseChannels(body, query) {
   const raw = body?.channels ?? query?.channels;
@@ -27,6 +20,12 @@ function respond(res, result) {
   res.status(ok ? 200 : 502).json({ ok, delivered: result.delivered, errors: result.errors, message_ids: result.message_ids });
 }
 
+function fail(res, err) {
+  const unknownChannel = /^Unknown channel/.test(err.message);
+  res.status(unknownChannel ? 400 : 500).json({ ok: false, message: err.message });
+}
+
+
 router.get('/health', (_req, res) => {
   res.json({
     ok: true,
@@ -35,14 +34,14 @@ router.get('/health', (_req, res) => {
   });
 });
 
-router.get('/channels', authMiddleware, (_req, res) => {
+router.get('/channels', requireApiKey, (_req, res) => {
   res.json({
     ok: true,
     channels: channels.ALL.map((c) => ({ name: c.name, enabled: c.enabled })),
   });
 });
 
-router.post('/send', authMiddleware, async (req, res) => {
+router.post('/send', requireApiKey, async (req, res) => {
   try {
     const { text, parse_mode, title, level, reply_to } = req.body;
     if (!text) return res.status(400).json({ ok: false, message: 'Missing required field: text' });
@@ -52,11 +51,11 @@ router.post('/send', authMiddleware, async (req, res) => {
     });
     respond(res, result);
   } catch (err) {
-    res.status(500).json({ ok: false, message: err.message });
+    fail(res, err);
   }
 });
 
-router.post('/alert', authMiddleware, async (req, res) => {
+router.post('/alert', requireApiKey, async (req, res) => {
   try {
     const { level, title, message } = req.body;
     if (!level || !title || !message) {
@@ -70,11 +69,11 @@ router.post('/alert', authMiddleware, async (req, res) => {
     });
     respond(res, result);
   } catch (err) {
-    res.status(500).json({ ok: false, message: err.message });
+    fail(res, err);
   }
 });
 
-router.post('/log', authMiddleware, async (req, res) => {
+router.post('/log', requireApiKey, async (req, res) => {
   try {
     const { source, log } = req.body;
     if (!log) return res.status(400).json({ ok: false, message: 'Missing required field: log' });
@@ -87,11 +86,11 @@ router.post('/log', authMiddleware, async (req, res) => {
     });
     respond(res, result);
   } catch (err) {
-    res.status(500).json({ ok: false, message: err.message });
+    fail(res, err);
   }
 });
 
-router.post('/file', authMiddleware, upload.single('file'), async (req, res) => {
+router.post('/file', requireApiKey, upload.single('file'), async (req, res) => {
   let cleanupPath = null;
   try {
     if (!req.file) return res.status(400).json({ ok: false, message: 'No file uploaded' });
@@ -109,7 +108,7 @@ router.post('/file', authMiddleware, upload.single('file'), async (req, res) => 
     });
     respond(res, result);
   } catch (err) {
-    res.status(500).json({ ok: false, message: err.message });
+    fail(res, err);
   } finally {
     if (cleanupPath) fs.promises.unlink(cleanupPath).catch(() => {});
   }

@@ -35,8 +35,17 @@ router.post('/', async (req, res) => {
   }
 });
 
-router.get('/replies', (_req, res) => {
-  res.json(replies.list());
+function intParam(value) {
+  const n = Number(value);
+  return Number.isFinite(n) ? n : undefined;
+}
+
+router.get('/replies', async (req, res) => {
+  const since = intParam(req.query.since) ?? 0;
+  const limit = intParam(req.query.limit);
+  const wait = Math.min(intParam(req.query.wait) ?? 0, 55); // stay under proxy timeouts
+  const fresh = await replies.waitFor(since, wait * 1000);
+  res.json(limit != null ? fresh.slice(-limit) : fresh);
 });
 
 module.exports = router;

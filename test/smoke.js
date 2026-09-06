@@ -404,6 +404,67 @@ await test('REST /api/send response includes message_ids', async () => {
   delete ch.BY_NAME[fake.name];
 });
 
+await test('REST /api/channels accepts Bearer auth (shared middleware)', async () => {
+  const express = require('express');
+  const router = require('../src/api');
+  const app = express();
+  app.use(express.json());
+  app.use('/api', router);
+  await withServer(app, async (port) => {
+    const response = await request({
+      port, path: '/api/channels',
+      headers: { Authorization: 'Bearer test-key' },
+    });
+    assert.equal(response.status, 200);
+    assert.equal(JSON.parse(response.body).ok, true);
+  });
+});
+
+await test('POST /api/send with unknown channel returns 400 listing available', async () => {
+  const express = require('express');
+  const router = require('../src/api');
+  const app = express();
+  app.use(express.json());
+  app.use('/api', router);
+  await withServer(app, async (port) => {
+    const response = await request({
+      port, path: '/api/send', method: 'POST',
+      headers: { 'x-api-key': 'test-key', 'Content-Type': 'application/json' },
+      body: JSON.stringify({ text: 'hi', channels: ['nope'] }),
+    });
+    assert.equal(response.status, 400);
+    const body = JSON.parse(response.body);
+    assert.equal(body.ok, false);
+    assert.match(body.message, /Unknown channel: nope/);
+    assert.match(body.message, /telegram/);
+  });
+});
+
+await test('GET /api/agent/replies supports since, limit, and wait', async () => {
+  const replies = require('../src/replies');
+  const { createApp } = require('../src/app');
+  const app = createApp();
+  await withServer(app, async (port) => {
+    const highest = replies.list().reduce((m, e) => Math.max(m, e.id), 0);
+    const headers = { Authorization: 'Bearer test-key' };
+
+    const filtered = await request({ port, path: `/api/agent/replies?since=${highest}&limit=1`, headers });
+    assert.equal(JSON.parse(filtered.body).length, 0);
+
+    const timedOut = await request({ port, path: `/api/agent/replies?since=${highest}&wait=1`, headers });
+    assert.equal(JSON.parse(timedOut.body).length, 0);
+
+    setTimeout(() => {
+      replies.capture({ message_id: highest + 9, text: 'hello again', chat: { id: 12345 }, date: 1750000300 });
+    }, 200);
+    const arrived = await request({ port, path: `/api/agent/replies?since=${highest}&wait=5`, headers });
+    const body = JSON.parse(arrived.body);
+    assert.equal(body.length, 1);
+    assert.equal(body[0].text, 'hello again');
+    assert.equal(body[0].reply_to_message_id, null);
+  });
+});
+
   if (failures) {
     console.error(`\n${failures} test(s) failed`);
     process.exit(1);
