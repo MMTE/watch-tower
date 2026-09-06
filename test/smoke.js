@@ -521,6 +521,47 @@ await test('ackReaction posts a 👍 reaction to the Telegram API', async () => 
   assert.deepEqual(JSON.parse(calls[0].opts.body), { chat_id: 12345, message_id: 4578, emoji: '👍' });
 });
 
+await test('dispatcher records sends in the activity ring', async () => {
+  const ch = require('../src/channels');
+  const activity = require('../src/activity');
+  const before = activity.listSends().length;
+  const fake = {
+    name: 'fake-act',
+    enabled: true,
+    sendMessage: async () => 'sent',
+    sendFile: async () => 'sent',
+  };
+  ch.ALL.push(fake);
+  ch.BY_NAME[fake.name] = fake;
+  try {
+    await ch.notify({ text: 'ring me', title: 't', channels: ['fake-act'] });
+  } finally {
+    ch.ALL.pop();
+    delete ch.BY_NAME[fake.name];
+  }
+  const sends = activity.listSends();
+  assert.equal(sends.length, before + 1);
+  assert.equal(sends[0].text, 'ring me');
+  assert.deepEqual(sends[0].delivered, ['fake-act']);
+});
+
+await test('GET /admin requires the key and renders sends, inbox, channels', async () => {
+  const { createApp } = require('../src/app');
+  const app = createApp();
+  await withServer(app, async (port) => {
+    const denied = await request({ port, path: '/admin' });
+    assert.equal(denied.status, 401);
+
+    const page = await request({ port, path: '/admin?key=test-key' });
+    assert.equal(page.status, 200);
+    assert.match(page.headers['content-type'], /text\/html/);
+    assert.match(page.body, /Recent sends/);
+    assert.match(page.body, /Inbox/);
+    assert.match(page.body, /telegram/);
+    assert.doesNotMatch(page.body, /test-key/); // the key is never embedded in the HTML
+  });
+});
+
   if (failures) {
     console.error(`\n${failures} test(s) failed`);
     process.exit(1);

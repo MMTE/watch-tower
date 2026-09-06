@@ -25,21 +25,7 @@ function escapeHtml(s) {
   return String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 }
 
-function renderStatusPage() {
-  const memory = process.memoryUsage();
-  const environment = process.env.NODE_ENV === 'production' ? 'production' : 'development';
-  const inbox = replies.list();
-  const lastReply = inbox.length
-    ? `${escapeHtml(inbox[inbox.length - 1].ts.slice(0, 19))} UTC · ${escapeHtml(inbox[inbox.length - 1].text.slice(0, 80))}`
-    : 'no replies captured yet';
-
-  return `<!doctype html>
-<html lang="en">
-<head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Watch Tower Status</title>
-  <style>
+const STATUS_STYLES = `
     :root { color-scheme: light dark; font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; }
     body { margin: 0; background: Canvas; color: CanvasText; }
     main { max-width: 640px; margin: 0 auto; padding: 48px 20px; }
@@ -53,7 +39,25 @@ function renderStatusPage() {
     dd { margin: 0; font-weight: 600; font-size: 0.9rem; text-align: right; }
     .ok { color: #15803d; }
     .meta { color: color-mix(in srgb, CanvasText 55%, Canvas 45%); font-weight: 400; font-size: 0.8rem; margin-left: 8px; }
-  </style>
+    input, select, button { font: inherit; }
+    button { cursor: pointer; }
+`;
+
+function renderStatusPage() {
+  const memory = process.memoryUsage();
+  const environment = process.env.NODE_ENV === 'production' ? 'production' : 'development';
+  const inbox = replies.list();
+  const lastReply = inbox.length
+    ? `${escapeHtml(inbox[inbox.length - 1].ts.slice(0, 19))} UTC · ${escapeHtml(inbox[inbox.length - 1].text.slice(0, 80))}`
+    : 'no replies captured yet';
+
+  return `<!doctype html>
+<html lang="en">
+  <head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Watch Tower Status</title>
+  <style>${STATUS_STYLES}</style>
 </head>
 <body>
   <main>
@@ -86,6 +90,70 @@ function renderStatusPage() {
       <div><dt>Last reply</dt><dd><span class="meta">${lastReply}</span></dd></div>
     </dl>
   </main>
+</body>
+</html>`;
+}
+
+function renderAdminPage() {
+  const activity = require('./activity');
+  const sendRows = activity.listSends().map((s) => `<div><dt>${escapeHtml((s.title || s.text || '').slice(0, 80))}</dt><dd><span class="meta">${escapeHtml(s.ts.slice(11, 19))} UTC · ${s.delivered.length ? s.delivered.join(', ') : `failed: ${s.errors.map((e) => e.channel || 'n/a').join(', ')}`}</span></dd></div>`).join('\n      ') || '<div><dt>nothing sent yet</dt><dd></dd></div>';
+  const replyRows = replies.list({ limit: 10 }).slice().reverse().map((r) => `<div><dt>${escapeHtml(r.text.slice(0, 80))}</dt><dd><span class="meta">${escapeHtml(r.ts.slice(0, 19))}${r.reply_to_message_id ? ` · reply to ${r.reply_to_message_id}` : ''}</span></dd></div>`).join('\n      ') || '<div><dt>no replies yet</dt><dd></dd></div>';
+  const channelRows = channels.ALL.map((c) => `<div><dt>${c.name}</dt><dd>${c.enabled ? '<span class="ok">enabled</span>' : '<span class="meta">not configured</span>'}</dd></div>`).join('\n      ');
+
+  return `<!doctype html>
+<html lang="en">
+  <head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Watch Tower Admin</title>
+  <style>${STATUS_STYLES}</style>
+</head>
+<body>
+  <main>
+    <h1>Watch Tower</h1>
+    <p class="sub">admin</p>
+
+    <p class="section-label">Test send</p>
+    <dl aria-label="Test send"><div>
+      <dt><label for="t">text</label></dt>
+      <dd><input id="t" style="width:100%"></dd>
+    </div><div>
+      <dt><label for="ttl">title</label> / <label for="lvl">level</label></dt>
+      <dd><input id="ttl"> <select id="lvl"><option></option><option>info</option><option>warn</option><option>error</option><option>critical</option></select>
+      <button onclick="send()">Send</button> <span id="r" class="meta"></span></dd>
+    </div></dl>
+
+    <p class="section-label">Recent sends</p>
+    <dl aria-label="Recent sends">
+      ${sendRows}
+    </dl>
+
+    <p class="section-label">Inbox</p>
+    <dl aria-label="Inbox">
+      ${replyRows}
+    </dl>
+
+    <p class="section-label">Channels</p>
+    <dl aria-label="Channels">
+      ${channelRows}
+    </dl>
+  </main>
+  <script>
+    async function send() {
+      const key = new URLSearchParams(location.search).get('key');
+      const body = { text: document.getElementById('t').value };
+      const title = document.getElementById('ttl').value;
+      const level = document.getElementById('lvl').value;
+      if (title) body.title = title;
+      if (level) body.level = level;
+      const res = await fetch('/api/send?key=' + encodeURIComponent(key), {
+        method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body),
+      });
+      const json = await res.json();
+      document.getElementById('r').textContent = json.ok ? 'sent to ' + json.delivered.join(', ') : 'failed';
+      if (json.ok) setTimeout(() => location.reload(), 800);
+    }
+  </script>
 </body>
 </html>`;
 }
@@ -124,6 +192,9 @@ function createApp() {
   }
 
   app.get('/', (_req, res) => res.redirect(302, '/status'));
+  app.get('/admin', requireApiKey, (_req, res) => {
+    res.type('html').send(renderAdminPage());
+  });
   app.get('/status', (_req, res) => {
     res.type('html').send(renderStatusPage());
   });

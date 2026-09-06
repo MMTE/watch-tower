@@ -3,6 +3,7 @@ const bale = require('./bale');
 const pushover = require('./pushover');
 const gotify = require('./gotify');
 const ntfy = require('./ntfy');
+const activity = require('../activity');
 
 const ALL = [telegram, bale, pushover, gotify, ntfy];
 const BY_NAME = Object.fromEntries(ALL.map((c) => [c.name, c]));
@@ -62,12 +63,16 @@ async function fanOut(fn, channels) {
 
 async function notify({ text, title, level, parse_mode, reply_to, channels } = {}) {
   if (!text) throw new Error('notify: text is required');
-  return fanOut((ch) => ch.sendMessage(text, { title, level, parse_mode, reply_to }), channels);
+  const result = await fanOut((ch) => ch.sendMessage(text, { title, level, parse_mode, reply_to }), channels);
+  activity.recordSend({ kind: 'message', title, text, level, delivered: result.delivered, errors: result.errors });
+  return result;
 }
 
 async function notifyFile({ filePath, caption, filename, title, level, reply_to, channels } = {}) {
   if (!filePath) throw new Error('notifyFile: filePath is required');
-  return fanOut((ch) => ch.sendFile(filePath, { caption, filename, title, level, reply_to }), channels);
+  const result = await fanOut((ch) => ch.sendFile(filePath, { caption, filename, title, level, reply_to }), channels);
+  activity.recordSend({ kind: 'file', title: title || filename || filePath, text: caption || '', level, delivered: result.delivered, errors: result.errors });
+  return result;
 }
 
 const LEVEL_EMOJI = {
