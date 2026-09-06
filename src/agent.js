@@ -29,7 +29,7 @@ router.post('/', async (req, res) => {
       channels: req.body?.channels,
     });
     const ok = result.delivered.length > 0;
-    res.status(ok ? 200 : 502).json({ ok, delivered: result.delivered, errors: result.errors });
+    res.status(ok ? 200 : 502).json({ ok, delivered: result.delivered, errors: result.errors, message_ids: result.message_ids });
   } catch (err) {
     res.status(500).json({ ok: false, message: err.message });
   }

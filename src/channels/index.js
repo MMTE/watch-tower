@@ -42,27 +42,32 @@ function resolveChannels(selection) {
 async function fanOut(fn, channels) {
   const targets = resolveChannels(channels);
   if (!targets.length) {
-    return { delivered: [], errors: [{ channel: null, error: 'No channels enabled or selected' }] };
+    return { delivered: [], errors: [{ channel: null, error: 'No channels enabled or selected' }], message_ids: {} };
   }
   const results = await Promise.allSettled(targets.map(fn));
   const delivered = [];
   const errors = [];
+  const message_ids = {};
   results.forEach((r, i) => {
     const name = targets[i].name;
-    if (r.status === 'fulfilled') delivered.push(name);
-    else errors.push({ channel: name, error: r.reason?.message || String(r.reason) });
+    if (r.status === 'fulfilled') {
+      delivered.push(name);
+      if (r.value?.message_id != null) message_ids[name] = r.value.message_id;
+    } else {
+      errors.push({ channel: name, error: r.reason?.message || String(r.reason) });
+    }
   });
-  return { delivered, errors };
+  return { delivered, errors, message_ids };
 }
 
-async function notify({ text, title, level, parse_mode, channels } = {}) {
+async function notify({ text, title, level, parse_mode, reply_to, channels } = {}) {
   if (!text) throw new Error('notify: text is required');
-  return fanOut((ch) => ch.sendMessage(text, { title, level, parse_mode }), channels);
+  return fanOut((ch) => ch.sendMessage(text, { title, level, parse_mode, reply_to }), channels);
 }
 
-async function notifyFile({ filePath, caption, filename, title, level, channels } = {}) {
+async function notifyFile({ filePath, caption, filename, title, level, reply_to, channels } = {}) {
   if (!filePath) throw new Error('notifyFile: filePath is required');
-  return fanOut((ch) => ch.sendFile(filePath, { caption, filename, title, level }), channels);
+  return fanOut((ch) => ch.sendFile(filePath, { caption, filename, title, level, reply_to }), channels);
 }
 
 const LEVEL_EMOJI = {

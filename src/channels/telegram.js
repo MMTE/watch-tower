@@ -27,18 +27,20 @@ function getChatId() {
   return chatId;
 }
 
-async function sendMessage(text, { title, parse_mode } = {}) {
+async function sendMessage(text, { title, parse_mode, reply_to } = {}) {
   if (!enabled) return;
   const body = title ? `*${title}*\n\n${text}` : text;
   const opts = {};
   if (parse_mode) opts.parse_mode = parse_mode;
   else if (title) opts.parse_mode = 'Markdown';
+  if (reply_to) opts.reply_to_message_id = reply_to;
   return bot.sendMessage(getChatId(), body, opts);
 }
 
-async function sendFile(filePath, { caption, filename } = {}) {
+async function sendFile(filePath, { caption, filename, reply_to } = {}) {
   if (!enabled) return;
   const opts = caption ? { caption } : {};
+  if (reply_to) opts.reply_to_message_id = reply_to;
   const fileOpts = filename ? { filename } : {};
   return bot.sendDocument(getChatId(), filePath, opts, fileOpts);
 }

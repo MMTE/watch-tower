@@ -24,11 +24,7 @@ function parseChannels(body, query) {
 
 function respond(res, result) {
   const ok = result.delivered.length > 0;
-  res.status(ok ? 200 : 502).json({
-    ok,
-    delivered: result.delivered,
-    errors: result.errors,
-  });
+  res.status(ok ? 200 : 502).json({ ok, delivered: result.delivered, errors: result.errors, message_ids: result.message_ids });
 }
 
 router.get('/health', (_req, res) => {
@@ -48,10 +44,10 @@ router.get('/channels', authMiddleware, (_req, res) => {
 
 router.post('/send', authMiddleware, async (req, res) => {
   try {
-    const { text, parse_mode, title, level } = req.body;
+    const { text, parse_mode, title, level, reply_to } = req.body;
     if (!text) return res.status(400).json({ ok: false, message: 'Missing required field: text' });
     const result = await channels.notify({
-      text, title, level, parse_mode,
+      text, title, level, parse_mode, reply_to: Number(reply_to) || undefined,
       channels: parseChannels(req.body, req.query),
     });
     respond(res, result);
@@ -108,6 +104,7 @@ router.post('/file', authMiddleware, upload.single('file'), async (req, res) => 
       filename,
       title: req.body.title,
       level: req.body.level,
+      reply_to: Number(req.body.reply_to) || undefined,
       channels: parseChannels(req.body, req.query),
     });
     respond(res, result);

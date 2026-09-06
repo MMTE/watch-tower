@@ -336,6 +336,74 @@ await test('list filters by since/limit; waitFor long-polls until a reply lands'
   assert.equal(fresh[0].text, 'late reply');
 });
 
+await test('fan-out result carries per-channel message ids', async () => {
+  const ch = require('../src/channels');
+  const fake = {
+    name: 'fake-id',
+    enabled: true,
+    sendMessage: async () => ({ message_id: 4578 }),
+    sendFile: async () => 'sent',
+  };
+  ch.ALL.push(fake);
+  ch.BY_NAME[fake.name] = fake;
+  try {
+    const result = await ch.notify({ text: 'hi', channels: ['fake-id'] });
+    assert.deepEqual(result.delivered, ['fake-id']);
+    assert.deepEqual(result.message_ids, { 'fake-id': 4578 });
+  } finally {
+    ch.ALL.pop();
+    delete ch.BY_NAME[fake.name];
+  }
+});
+
+await test('notify threads reply_to into channel options', async () => {
+  const ch = require('../src/channels');
+  let seenOpts;
+  const fake = {
+    name: 'fake-thread',
+    enabled: true,
+    sendMessage: async (_text, opts) => { seenOpts = opts; return {}; },
+    sendFile: async () => 'sent',
+  };
+  ch.ALL.push(fake);
+  ch.BY_NAME[fake.name] = fake;
+  try {
+    await ch.notify({ text: 'hi', reply_to: 4578, channels: ['fake-thread'] });
+    assert.equal(seenOpts.reply_to, 4578);
+  } finally {
+    ch.ALL.pop();
+    delete ch.BY_NAME[fake.name];
+  }
+});
+
+await test('REST /api/send response includes message_ids', async () => {
+  const ch = require('../src/channels');
+  const fake = {
+    name: 'fake-rest',
+    enabled: true,
+    sendMessage: async () => ({ message_id: 99 }),
+    sendFile: async () => 'sent',
+  };
+  ch.ALL.push(fake);
+  ch.BY_NAME[fake.name] = fake;
+  const express = require('express');
+  const router = require('../src/api');
+  const app = express();
+  app.use(express.json());
+  app.use('/api', router);
+  await withServer(app, async (port) => {
+    const response = await request({
+      port, path: '/api/send', method: 'POST',
+      headers: { 'x-api-key': 'test-key', 'Content-Type': 'application/json' },
+      body: JSON.stringify({ text: 'hi', channels: ['fake-rest'] }),
+    });
+    assert.equal(response.status, 200);
+    assert.deepEqual(JSON.parse(response.body).message_ids, { 'fake-rest': 99 });
+  });
+  ch.ALL.pop();
+  delete ch.BY_NAME[fake.name];
+});
+
   if (failures) {
     console.error(`\n${failures} test(s) failed`);
     process.exit(1);
